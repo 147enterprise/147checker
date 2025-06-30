@@ -1,5 +1,8 @@
 ## 147Checker
 
+<img align="center" alt="GIF" src="https://i.imgur.com/oPjKHKj.png">
+<br>
+
 ## Instalação
 (caso queira pular a instalação, baixe o .exe clicando em "Atualização x.x.x" no lado direito nas Releases do repositório)
 
