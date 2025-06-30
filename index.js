@@ -1,4 +1,4 @@
-process.title = "147Company™ | Checker de usernames";
+process.title = "147Company™ | Checker de usernames.";
 
 const https = require("https");
 const fs = require("fs");
