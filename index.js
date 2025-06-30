@@ -1,18 +1,19 @@
 process.title = "147Company™ | Checker de usernames";
 
-const https = require('https');
-const fs = require('fs');
-const { exec, spawn, execSync } = require('child_process');
-const { SocksProxyAgent } = require('socks-proxy-agent');
-const os = require('os');
-const path = require('path');
-const readline = require('readline');
+const https = require("https");
+const fs = require("fs");
+const { exec, spawn, execSync } = require("child_process");
+const { SocksProxyAgent } = require("socks-proxy-agent");
+const os = require("os");
+const path = require("path");
+const readline = require("readline");
 const fsp = fs.promises;
 
-const DOWNLOAD_URL = 'https://archive.torproject.org/tor-package-archive/torbrowser/14.5.4/';
-const agent = new SocksProxyAgent('socks5h://127.0.0.1:9050');
+const DOWNLOAD_URL =
+	"https://archive.torproject.org/tor-package-archive/torbrowser/14.5.4/";
+const agent = new SocksProxyAgent("socks5h://127.0.0.1:9050");
 
-const roxo = process.stdout.isTTY ? "\x1b[38;2;160;32;240m": "";
+const roxo = process.stdout.isTTY ? "\x1b[38;2;160;32;240m" : "";
 const roxo_2 = process.stdout.isTTY ? "\x1b[38;2;138;43;226m" : "";
 const reset = process.stdout.isTTY ? "\x1b[0m" : "";
 const vermelho = process.stdout.isTTY ? "\x1b[31m" : "";
@@ -20,24 +21,24 @@ const vermelho = process.stdout.isTTY ? "\x1b[31m" : "";
 const verde = process.stdout.isTTY ? "\x1b[32m" : "";
 const erro = process.stdout.isTTY ? `[ ${vermelho}×${reset} ]` : "[ × ]";
 const amarelo = process.stdout.isTTY ? "\x1b[33m" : "";
-const sleep = ms => new Promise(r => setTimeout(r, ms));
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 const config = () => {
-  if (!fs.existsSync("./config.json")) {
-    criarConfig();
-  }
-  return JSON.parse(fs.readFileSync("./config.json", "utf8"));
+	if (!fs.existsSync("./config.json")) {
+		criarConfig();
+	}
+	return JSON.parse(fs.readFileSync("./config.json", "utf8"));
 };
 
 function criarConfig() {
-  const configData = {
-    delay_requests: "3000",
-	delay_troca_ips: "25",
-	salvar_validos: true
-  };
-  
-  fs.writeFileSync("config.json", JSON.stringify(configData, null, 4));
-};
+	const configData = {
+		delay_requests: "3000",
+		delay_troca_ips: "25",
+		salvar_validos: true,
+	};
+
+	fs.writeFileSync("config.json", JSON.stringify(configData, null, 4));
+}
 
 const arte = `${roxo}
    __  __    __  ________ 
@@ -53,439 +54,496 @@ ${amarelo}\n              software is our thing.${reset}
 `;
 
 function prompt(question) {
-  const rl = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout
-  });
-  return new Promise(resolve => rl.question(question, answer => {
-    rl.close();
-    resolve(answer);
-  }));
-};
+	const rl = readline.createInterface({
+		input: process.stdin,
+		output: process.stdout,
+	});
+	return new Promise((resolve) =>
+		rl.question(question, (answer) => {
+			rl.close();
+			resolve(answer);
+		}),
+	);
+}
 
 function pegarPlataforma() {
-  const platform = process.platform;
-  const arch = process.arch;
+	const platform = process.platform;
+	const arch = process.arch;
 
-  if (platform === 'linux') {
-    if (arch === 'x64') return 'linux-x86_64';
-    if (arch === 'ia32') return 'linux-i686';
-  } else if (platform === 'darwin') {
-    if (arch === 'x64') return 'macos-x86_64';
-    if (arch === 'arm64') return 'macos-aarch64';
-  } else if (platform === 'win32') {
-    if (arch === 'x64') return 'windows-x86_64';
-    if (arch === 'ia32') return 'windows-i686';
-  } else if (platform === 'android') {
-    if (arch === 'arm64') return 'android-aarch64';
-    if (arch === 'arm') return 'android-armv7';
-    if (arch === 'x64') return 'android-x86_64';
-    if (arch === 'ia32' || arch === 'x86') return 'android-x86';
-  }
+	if (platform === "linux") {
+		if (arch === "x64") return "linux-x86_64";
+		if (arch === "ia32") return "linux-i686";
+	} else if (platform === "darwin") {
+		if (arch === "x64") return "macos-x86_64";
+		if (arch === "arm64") return "macos-aarch64";
+	} else if (platform === "win32") {
+		if (arch === "x64") return "windows-x86_64";
+		if (arch === "ia32") return "windows-i686";
+	} else if (platform === "android") {
+		if (arch === "arm64") return "android-aarch64";
+		if (arch === "arm") return "android-armv7";
+		if (arch === "x64") return "android-x86_64";
+		if (arch === "ia32" || arch === "x86") return "android-x86";
+	}
 
-  console.clear();
-  console.log(`${erro} Plataforma não suportada: ${platform}-${arch}`);
-  process.exit();
-};
+	console.clear();
+	console.log(`${erro} Plataforma não suportada: ${platform}-${arch}`);
+	process.exit();
+}
 
 function centralizarTexto(text, space) {
-  return text
-    .split(/\r?\n/)
-    .map((line, _, lines) => {
-      const spacesCount =
-        space !== undefined
-          ? space
-          : Math.floor(
-              (process.stdout.columns - lines[Math.floor(lines.length / 2)].length) /
-                2
-            );
-      return ' '.repeat(spacesCount) + line;
-    })
-    .join('\n');
-};
+	return text
+		.split(/\r?\n/)
+		.map((line, _, lines) => {
+			const spacesCount =
+				space !== undefined
+					? space
+					: Math.floor(
+							(process.stdout.columns -
+								lines[Math.floor(lines.length / 2)].length) /
+								2,
+						);
+			return " ".repeat(spacesCount) + line;
+		})
+		.join("\n");
+}
 
 function fetchHTML(url, opcoes = {}) {
-  return new Promise((resolve, reject) => {
-    https.get(url, opcoes, res => {
-      let data = '';
-      res.on('data', chunk => data += chunk);
-      res.on('end', () => resolve(data));
-    }).on('error', reject);
-  });
-};
+	return new Promise((resolve, reject) => {
+		https
+			.get(url, opcoes, (res) => {
+				let data = "";
+				res.on("data", (chunk) => (data += chunk));
+				res.on("end", () => resolve(data));
+			})
+			.on("error", reject);
+	});
+}
 
 function pegarIP(agent) {
-  return fetchHTML('https://whatismyip.akamai.com', { agent })
-    .then(data => data.trim())
-    .catch(e => {
-      console.log(`${erro} Erro ao obter IP público: ${e.message}`);
-    });
-};
+	return fetchHTML("https://whatismyip.akamai.com", { agent })
+		.then((data) => data.trim())
+		.catch((e) => {
+			console.log(`${erro} Erro ao obter IP público: ${e.message}`);
+		});
+}
 
 function downloadFile(url, destination) {
-  return new Promise((resolve, reject) => {
-    const arquivo = fs.createWriteStream(destination);
-    https.get(url, res => {
-      res.pipe(arquivo);
-      arquivo.on('finish', () => arquivo.close(resolve));
-    }).on('error', err => {
-      fs.unlink(destination, () => reject(err));
-    });
-  });
-};
+	return new Promise((resolve, reject) => {
+		const arquivo = fs.createWriteStream(destination);
+		https
+			.get(url, (res) => {
+				res.pipe(arquivo);
+				arquivo.on("finish", () => arquivo.close(resolve));
+			})
+			.on("error", (err) => {
+				fs.unlink(destination, () => reject(err));
+			});
+	});
+}
 
 function extrairTarGz(file, path_saida) {
-  return new Promise((resolve, reject) => {
-    exec(`tar -xzf "${file}" -C "${path_saida}"`, (err, stdout, stderr) => {
-      if (err) return reject(stderr || err);
-      resolve(stdout);
-    });
-  });
-};
+	return new Promise((resolve, reject) => {
+		exec(`tar -xzf "${file}" -C "${path_saida}"`, (err, stdout, stderr) => {
+			if (err) return reject(stderr || err);
+			resolve(stdout);
+		});
+	});
+}
 
 function garantirExe(filePath) {
-  const conteudo = `
+	const conteudo = `
 MaxCircuitDirtiness 1
 CircuitBuildTimeout ${config().delay_troca_ips}
 LearnCircuitBuildTimeout 0
 `.trim();
 
-  fs.writeFileSync(path.join(path.dirname(filePath), "torrc"), conteudo);
+	fs.writeFileSync(path.join(path.dirname(filePath), "torrc"), conteudo);
 
-  return new Promise((resolve, reject) => {
-    if (process.platform === 'win32') return resolve();
-    fs.chmod(filePath, 0o755, err => {
-      if (err) return reject(err);
-      resolve();
-    });
-  });
-};
+	return new Promise((resolve, reject) => {
+		if (process.platform === "win32") return resolve();
+		fs.chmod(filePath, 0o755, (err) => {
+			if (err) return reject(err);
+			resolve();
+		});
+	});
+}
 
-function esperarTor(port = 9050, host = '127.0.0.1', timeout = 15000) {
-  return new Promise((resolve, reject) => {
-    const comeco = Date.now();
-    let timeoutId;
+function esperarTor(port = 9050, host = "127.0.0.1", timeout = 15000) {
+	return new Promise((resolve, reject) => {
+		const comeco = Date.now();
+		let timeoutId;
 
-    function check() {
-      const socket = require('net').createConnection({ port, host }, () => {
-        socket.destroy();
-        clearTimeout(timeoutId);
-        resolve();
-      });
+		function check() {
+			const socket = require("net").createConnection({ port, host }, () => {
+				socket.destroy();
+				clearTimeout(timeoutId);
+				resolve();
+			});
 
-      socket.on('error', () => {
-        socket.destroy();
-        if (Date.now() - comeco > timeout) {
-          clearTimeout(timeoutId);
-          reject(new Error('Tor não respondeu na porta 9050 dentro do tempo limite'));
-        } else {
-          timeoutId = setTimeout(check, 500);
-        }
-      });
-    }
+			socket.on("error", () => {
+				socket.destroy();
+				if (Date.now() - comeco > timeout) {
+					clearTimeout(timeoutId);
+					reject(
+						new Error("Tor não respondeu na porta 9050 dentro do tempo limite"),
+					);
+				} else {
+					timeoutId = setTimeout(check, 500);
+				}
+			});
+		}
 
-    check();
-  });
-};
+		check();
+	});
+}
 
 function gerarUsername(tamanho, charset) {
-  return [...Array(tamanho)].map(() => charset[Math.floor(Math.random() * charset.length)]).join('');
-};
+	return [...Array(tamanho)]
+		.map(() => charset[Math.floor(Math.random() * charset.length)])
+		.join("");
+}
 
 async function pegarOpcoesUsernames() {
-  let tamanho;
-  while (true) {
+	let tamanho;
+	while (true) {
+		console.clear();
+		console.log(centralizarTexto(arte));
+
+		const input = await prompt(
+			`Quantos caracteres o username deve ter?\n${roxo}> ${reset}`,
+		);
+		const num = parseInt(input);
+		if (!isNaN(num) && num > 0 && num <= 32) {
+			tamanho = num;
+			break;
+		}
+		console.log(`${erro} Por favor, insira um número válido entre 1 e 32.`);
+	}
+
 	console.clear();
 	console.log(centralizarTexto(arte));
 
-    const input = await prompt(`Quantos caracteres o username deve ter?\n${roxo}> ${reset}`);
-    const num = parseInt(input);
-    if (!isNaN(num) && num > 0 && num <= 32) {
-      tamanho = num;
-      break;
-    }
-    console.log(`${erro} Por favor, insira um número válido entre 1 e 32.`);
-  }
-
-  console.clear();
-  console.log(centralizarTexto(arte));
-  
-  console.log(`
+	console.log(`
 [${roxo} 1 ${reset}] Somente letras (a-z)
 [${roxo} 2 ${reset}] Somente números (0-9)
 [${roxo} 3 ${reset}] Letras e números (a-z, 0-9)
   `);
 
-  let charset = '';
-  while (true) {
-    const escolha = await prompt(`${roxo_2}>${reset} `);
-    if (escolha === '1') {
-      charset = 'abcdefghijklmnopqrstuvwxyz';
-      break;
-    } else if (escolha === '2') {
-      charset = '0123456789';
-      break;
-    } else if (escolha === '3') {
-      charset = 'abcdefghijklmnopqrstuvwxyz0123456789';
-      break;
-    }
-    console.log(`${erro} Opção inválida. Escolha 1, 2 ou 3.`);
-  }
+	let charset = "";
+	while (true) {
+		const escolha = await prompt(`${roxo_2}>${reset} `);
+		if (escolha === "1") {
+			charset = "abcdefghijklmnopqrstuvwxyz";
+			break;
+		} else if (escolha === "2") {
+			charset = "0123456789";
+			break;
+		} else if (escolha === "3") {
+			charset = "abcdefghijklmnopqrstuvwxyz0123456789";
+			break;
+		}
+		console.log(`${erro} Opção inválida. Escolha 1, 2 ou 3.`);
+	}
 
-  return { tamanho, charset };
-};
+	return { tamanho, charset };
+}
 
 async function pararTor() {
-  const cmd = process.platform === 'win32'
-    ? 'taskkill /IM tor.exe /F'
-    : 'pkill -f "/tor" || true';
-  
-  try {
-    await execSync(cmd, { stdio: 'ignore' });
-  } catch {}
-};
+	const cmd =
+		process.platform === "win32"
+			? "taskkill /IM tor.exe /F"
+			: 'pkill -f "/tor" || true';
+
+	try {
+		await execSync(cmd, { stdio: "ignore" });
+	} catch {}
+}
 
 async function limparTor(dir) {
-  if (fs.existsSync(dir)) {
-    console.log(`[${roxo_2} ! ${reset}] Apagando diretório antigo: ${dir}`);
-	await pararTor();
-    await fsp.rm(dir, { recursive: true, force: true });
-  }
-};
+	if (fs.existsSync(dir)) {
+		console.log(`[${roxo_2} ! ${reset}] Apagando diretório antigo: ${dir}`);
+		await pararTor();
+		await fsp.rm(dir, { recursive: true, force: true });
+	}
+}
 
 function iniciarTor(torDir) {
-  return new Promise(async (resolve, reject) => {
-    try {
-      const caminho_tor = process.platform === 'win32'
-        ? path.join(torDir, 'tor.exe')
-        : path.join(torDir, 'tor');
+	return new Promise(async (resolve, reject) => {
+		try {
+			const caminho_tor =
+				process.platform === "win32"
+					? path.join(torDir, "tor.exe")
+					: path.join(torDir, "tor");
 
-      if (!fs.existsSync(caminho_tor)) {
-        return reject(new Error(`Arquivo Tor não encontrado em: ${caminho_tor}`));
-      }
+			if (!fs.existsSync(caminho_tor)) {
+				return reject(
+					new Error(`Arquivo Tor não encontrado em: ${caminho_tor}`),
+				);
+			}
 
-      await garantirExe(caminho_tor);
-      console.log(`[${roxo_2} + ${reset}] Iniciando Tor: ${caminho_tor}`);
-	  
-	  const caminho_exe = path.dirname(caminho_tor);
-      const caminho_torrc = path.join(caminho_exe, 'torrc');
-      const tor = spawn(caminho_tor, ['-f', caminho_torrc], {
-        cwd: torDir,
-        stdio: 'ignore'
-      });
+			await garantirExe(caminho_tor);
+			console.log(`[${roxo_2} + ${reset}] Iniciando Tor: ${caminho_tor}`);
 
-      tor.once('error', err => {
-        console.log(`${erro} Erro ao iniciar Tor: ${err.message}`);
-        reject(err);
-      });
+			const caminho_exe = path.dirname(caminho_tor);
+			const caminho_torrc = path.join(caminho_exe, "torrc");
+			const tor = spawn(caminho_tor, ["-f", caminho_torrc], {
+				cwd: torDir,
+				stdio: "ignore",
+			});
 
-      console.log(`[${roxo_2} + ${reset}] Esperando Tor abrir porta 9050...`);
-      await esperarTor();
-      resolve();
-    } catch (err) {
-      reject(err);
-    }
-  });
-};
+			tor.once("error", (err) => {
+				console.log(`${erro} Erro ao iniciar Tor: ${err.message}`);
+				reject(err);
+			});
+
+			console.log(`[${roxo_2} + ${reset}] Esperando Tor abrir porta 9050...`);
+			await esperarTor();
+			resolve();
+		} catch (err) {
+			reject(err);
+		}
+	});
+}
 
 function salvarTxt(username) {
-  if (!config().salvar_validos) return;
-  const caminho = path.resolve('validos.txt');
+	if (!config().salvar_validos) return;
+	const caminho = path.resolve("validos.txt");
 
-  try {
-    fs.appendFileSync(caminho, username + '\n', 'utf8');
-  } catch (err) {
-    console.log(`${erro} Erro ao salvar username: ${err.message}`);
-  }
-};
+	try {
+		fs.appendFileSync(caminho, username + "\n", "utf8");
+	} catch (err) {
+		console.log(`${erro} Erro ao salvar username: ${err.message}`);
+	}
+}
 
 async function fazerLoopRequest(tamanho, charset) {
-  console.clear();
-  console.log(centralizarTexto(arte));
-  	
-  while (true) {
-	const ip = await pegarIP();
-    const username = gerarUsername(tamanho, charset);
-    const body = JSON.stringify({ username });
+	console.clear();
+	console.log(centralizarTexto(arte));
 
-    const options = {
-      hostname: 'discord.com',
-      port: 443,
-      path: '/api/v9/unique-username/username-attempt-unauthed',
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Content-Length': Buffer.byteLength(body),
-      },
-      agent,
-    };
+	while (true) {
+		const ip = await pegarIP();
+		const username = gerarUsername(tamanho, charset);
+		const body = JSON.stringify({ username });
 
-    await new Promise(resolve => {
-      const req = https.request(options, res => {
-        let data = '';
-        res.on('data', chunk => data += chunk);
-        res.on('end', async () => {
-		  if (res.statusCode === 429) {
-            console.log(centralizarTexto(`${erro} rate-limit (IP: ${ip}), esperando troca de IP.\n`, 4));
-            await sleep(parseInt(config().delay_troca_ips) * 1000 + 1000);
-            return resolve();
-          }
-			
-          try {
-            const json = JSON.parse(data);
-			
-            !json.taken && salvarTxt(username);
-			console.log(centralizarTexto(`[ ${roxo_2}!${reset} ] username ${roxo_2}${username}${reset} ${json.taken ? `${vermelho}indisponível${reset}\n` : `${verde}disponível${reset}\n`}`, 4))
-		  } catch (e) {
-		    console.log(`${erro} Erro ao processar resposta JSON: ${e.message}`);
-          }
-		  
-          resolve();
-        });
-      });
+		const options = {
+			hostname: "discord.com",
+			port: 443,
+			path: "/api/v9/unique-username/username-attempt-unauthed",
+			method: "POST",
+			headers: {
+				"Content-Type": "application/json",
+				"Content-Length": Buffer.byteLength(body),
+			},
+			agent,
+		};
 
-      req.on('error', err => {
-        console.log(`${erro} Erro na requisição via Tor: ${err.message}`);
-        resolve();
-      });
+		await new Promise((resolve) => {
+			const req = https.request(options, (res) => {
+				let data = "";
+				res.on("data", (chunk) => (data += chunk));
+				res.on("end", async () => {
+					if (res.statusCode === 429) {
+						console.log(
+							centralizarTexto(
+								`${erro} rate-limit (IP: ${ip}), esperando troca de IP.\n`,
+								4,
+							),
+						);
+						await sleep(parseInt(config().delay_troca_ips) * 1000 + 1000);
+						return resolve();
+					}
 
-      req.write(body);
-      req.end();
-    });
+					try {
+						const json = JSON.parse(data);
 
-    await sleep(parseInt(config().delay_requests));
-  }
-};
+						!json.taken && salvarTxt(username);
+						console.log(
+							centralizarTexto(
+								`[ ${roxo_2}!${reset} ] username ${roxo_2}${username}${reset} ${json.taken ? `${vermelho}indisponível${reset}\n` : `${verde}disponível${reset}\n`}`,
+								4,
+							),
+						);
+					} catch (e) {
+						console.log(
+							`${erro} Erro ao processar resposta JSON: ${e.message}`,
+						);
+					}
+
+					resolve();
+				});
+			});
+
+			req.on("error", (err) => {
+				console.log(`${erro} Erro na requisição via Tor: ${err.message}`);
+				resolve();
+			});
+
+			req.write(body);
+			req.end();
+		});
+
+		await sleep(parseInt(config().delay_requests));
+	}
+}
 
 async function configurar() {
-  while (true) {
-    console.clear();
-    console.log(centralizarTexto(arte));
-    console.log(centralizarTexto(`
+	while (true) {
+		console.clear();
+		console.log(centralizarTexto(arte));
+		console.log(
+			centralizarTexto(
+				`
 [${roxo} 1 ${reset}] Alterar delay entre checagens (atual: ${amarelo}${config().delay_requests / 1000} segundos${reset})
 [${roxo} 2 ${reset}] Alterar delay entre troca de IPs (atual: ${amarelo}${config().delay_troca_ips} segundos${reset})
 [${roxo} 3 ${reset}] Ativar/desativar save de usernames disponíveis (atual: ${amarelo}${config().salvar_validos ? `${verde}ativado` : `${vermelho}desativado`}${reset})
 
 [${roxo} 4 ${reset}] Voltar
-    `, 4));
+    `,
+				4,
+			),
+		);
 
-    const resposta = await prompt(centralizarTexto(`${roxo_2}>${reset} `, 4));
-    let conf = config();
-    if (resposta === "4") return menu();
+		const resposta = await prompt(centralizarTexto(`${roxo_2}>${reset} `, 4));
+		let conf = config();
+		if (resposta === "4") return menu();
 
-    switch (resposta) {
-      case "1": {
-		console.clear();
-        const novoDelay = await prompt(centralizarTexto(`Novo delay entre checagens (em segundos):\n${roxo}> ${reset}`, 4));
-        const valor = parseInt(novoDelay);
-        if (!isNaN(valor) && valor >= 0) {
-          conf.delay_requests = Math.round(valor * 1000).toString();
-          fs.writeFileSync("config.json", JSON.stringify(conf, null, 4));
-          console.log(`${verde}Delay entre checagens atualizado com sucesso.${reset}`);
-        } else {
-		  console.clear();
-          console.log(`${erro} Valor inválido.`);
-        }
-        await sleep(1500);
-        break;
-      }
+		switch (resposta) {
+			case "1": {
+				console.clear();
+				const novoDelay = await prompt(
+					centralizarTexto(
+						`Novo delay entre checagens (em segundos):\n${roxo}> ${reset}`,
+						4,
+					),
+				);
+				const valor = parseInt(novoDelay);
+				if (!isNaN(valor) && valor >= 0) {
+					conf.delay_requests = Math.round(valor * 1000).toString();
+					fs.writeFileSync("config.json", JSON.stringify(conf, null, 4));
+					console.log(
+						`${verde}Delay entre checagens atualizado com sucesso.${reset}`,
+					);
+				} else {
+					console.clear();
+					console.log(`${erro} Valor inválido.`);
+				}
+				await sleep(1500);
+				break;
+			}
 
-      case "2": {
-		console.clear();
-        const novoDelay = await prompt(centralizarTexto(`Novo delay entre troca de IPs (em segundos):\n${roxo}> ${reset}`, 4));
-        const valor = parseInt(novoDelay);
-        if (!isNaN(valor) && valor >= 0) {
-          conf.delay_troca_ips = valor.toString();
-          fs.writeFileSync("config.json", JSON.stringify(conf, null, 4));
-          console.log(`${verde} Delay de troca de IPs atualizado com sucesso.${reset}`);
-        } else {
-		  console.clear();
-          console.log(`${erro} Valor inválido.`);
-        }
-        await sleep(1500);
-        break;
-      }
+			case "2": {
+				console.clear();
+				const novoDelay = await prompt(
+					centralizarTexto(
+						`Novo delay entre troca de IPs (em segundos):\n${roxo}> ${reset}`,
+						4,
+					),
+				);
+				const valor = parseInt(novoDelay);
+				if (!isNaN(valor) && valor >= 0) {
+					conf.delay_troca_ips = valor.toString();
+					fs.writeFileSync("config.json", JSON.stringify(conf, null, 4));
+					console.log(
+						`${verde} Delay de troca de IPs atualizado com sucesso.${reset}`,
+					);
+				} else {
+					console.clear();
+					console.log(`${erro} Valor inválido.`);
+				}
+				await sleep(1500);
+				break;
+			}
 
-      case "3": {
-        conf.salvar_validos = !conf.salvar_validos;
-        fs.writeFileSync("config.json", JSON.stringify(conf, null, 4));
-        console.log(`${verde}Save de usernames disponíveis ${conf.salvar_validos ? "ativado" : `${vermelho}desativado`}.${reset}`);
-        await sleep(1500);
-        break;
-      }
+			case "3": {
+				conf.salvar_validos = !conf.salvar_validos;
+				fs.writeFileSync("config.json", JSON.stringify(conf, null, 4));
+				console.log(
+					`${verde}Save de usernames disponíveis ${conf.salvar_validos ? "ativado" : `${vermelho}desativado`}.${reset}`,
+				);
+				await sleep(1500);
+				break;
+			}
 
-      default:
-	    console.clear();
-        console.log(`${erro} Opção inválida.`);
-        await sleep(1500);
-    }
-  }
-};
+			default:
+				console.clear();
+				console.log(`${erro} Opção inválida.`);
+				await sleep(1500);
+		}
+	}
+}
 
 async function iniciar_checagem() {
-  try {
-	console.clear();
-    const identificador = pegarPlataforma();
-    console.log(`[${roxo_2} + ${reset}] Sistema detectado: ${identificador}`);
+	try {
+		console.clear();
+		const identificador = pegarPlataforma();
+		console.log(`[${roxo_2} + ${reset}] Sistema detectado: ${identificador}`);
 
-    const html = await fetchHTML(DOWNLOAD_URL);
-    const regex = new RegExp(`<a href="(tor-expert-bundle-${identificador}-14\\.5\\.4\\.tar\\.gz)">`, 'i');
-	
-    const match = html.match(regex);
-    if (!match) throw new Error('Arquivo apropriado não encontrado.');
+		const html = await fetchHTML(DOWNLOAD_URL);
+		const regex = new RegExp(
+			`<a href="(tor-expert-bundle-${identificador}-14\\.5\\.4\\.tar\\.gz)">`,
+			"i",
+		);
 
-    const nome_arquivo = match[1];
-    const fullUrl = DOWNLOAD_URL + nome_arquivo;
-    const downloadPath = path.join(os.tmpdir(), nome_arquivo);
+		const match = html.match(regex);
+		if (!match) throw new Error("Arquivo apropriado não encontrado.");
 
-    console.log(`[${roxo_2} + ${reset}] Baixando: ${fullUrl}`);
-    await downloadFile(fullUrl, downloadPath);
-    console.log(`[${roxo_2} + ${reset}] Download concluído: ${downloadPath}`);
+		const nome_arquivo = match[1];
+		const fullUrl = DOWNLOAD_URL + nome_arquivo;
+		const downloadPath = path.join(os.tmpdir(), nome_arquivo);
 
-    const pastaSaida = path.resolve(__dirname, 'tor_extraido');
-	await limparTor(pastaSaida);
-    fs.mkdirSync(pastaSaida);
+		console.log(`[${roxo_2} + ${reset}] Baixando: ${fullUrl}`);
+		await downloadFile(fullUrl, downloadPath);
+		console.log(`[${roxo_2} + ${reset}] Download concluído: ${downloadPath}`);
 
-    console.log(`[${roxo_2} + ${reset}] Extraindo para: ${pastaSaida}`);
-    await extrairTarGz(downloadPath, pastaSaida);
-    console.log(`[${roxo_2} + ${reset}] Extração concluída com sucesso.`);
+		const pastaSaida = path.resolve(__dirname, "tor_extraido");
+		await limparTor(pastaSaida);
+		fs.mkdirSync(pastaSaida);
 
-    const pastaTor = path.join(pastaSaida, 'tor');
-    await iniciarTor(pastaTor);
-	
-    const { tamanho, charset } = await pegarOpcoesUsernames();
-    await fazerLoopRequest(tamanho, charset);
+		console.log(`[${roxo_2} + ${reset}] Extraindo para: ${pastaSaida}`);
+		await extrairTarGz(downloadPath, pastaSaida);
+		console.log(`[${roxo_2} + ${reset}] Extração concluída com sucesso.`);
 
-  } catch (e) {
-    console.log(`${erro} Erro: ${e.message}`);
-  }
-};
+		const pastaTor = path.join(pastaSaida, "tor");
+		await iniciarTor(pastaTor);
+
+		const { tamanho, charset } = await pegarOpcoesUsernames();
+		await fazerLoopRequest(tamanho, charset);
+	} catch (e) {
+		console.log(`${erro} Erro: ${e.message}`);
+	}
+}
 
 async function menu() {
-    console.clear();
-    console.log(centralizarTexto(arte));
-    console.log(centralizarTexto(`
+	console.clear();
+	console.log(centralizarTexto(arte));
+	console.log(
+		centralizarTexto(
+			`
 [${roxo} 1 ${reset}] Iniciar checagem
 [${roxo} 2 ${reset}] Configurar
 
 [${roxo} 3 ${reset}] Sair
-    `, 4));
-	const resposta = await prompt(centralizarTexto(`${roxo_2}>${reset} `, 4))
-	
+    `,
+			4,
+		),
+	);
+	const resposta = await prompt(centralizarTexto(`${roxo_2}>${reset} `, 4));
+
 	switch (resposta) {
-	  case "1":
-	    return iniciar_checagem();
-		break;
-	  case "2":
-	    return configurar();
-		break;
-      case "3":
-	    process.exit();
-	  default:
-	    console.clear();
-		console.log(`${erro} Opção inválida.`)
-	    process.exit();
+		case "1":
+			return iniciar_checagem();
+			break;
+		case "2":
+			return configurar();
+			break;
+		case "3":
+			process.exit();
+		default:
+			console.clear();
+			console.log(`${erro} Opção inválida.`);
+			process.exit();
 	}
-};
+}
 
 menu();
