@@ -23,6 +23,27 @@
     node index.js
     ```
 
+## Transformar em Executável
+
+Você pode transformar este script em um executável usando o `pkg`.
+
+1. **Abra o CMD na pasta do projeto**
+
+2. **Instale as dependências**
+    ```sh
+    npm install && npm install -g @yao-pkg/pkg
+    ```
+
+3. **Compile o script:**
+    ```sh
+    pkg .
+    ```
+
+4. **Execute o executável:**
+    ```sh
+    ./147clear.exe
+    ```
+
 ## Abrir um Commit
 
 Para contribuir com o projeto, siga estes passos:
