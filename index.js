@@ -272,9 +272,11 @@ function iniciarTor(torDir) {
 	return new Promise(async (resolve, reject) => {
 		try {
 			const caminho_tor =
-				process.platform === "win32"
-					? path.join(torDir, "tor.exe")
-					: path.join(torDir, "tor");
+				process.platform === "android"
+					? path.join(torDir, "libTor.so")
+					: process.platform === "win32"
+						? path.join(torDir, "tor.exe")
+						: path.join(torDir, "tor");
 
 			if (!fs.existsSync(caminho_tor)) {
 				return reject(
