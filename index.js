@@ -108,8 +108,10 @@ function centralizarTexto(text, space) {
 		.join("\n");
 }
 
-function fetchHTML(url, opcoes = {}) {
+function fetchHTML(url, usar_agent = false) {
 	return new Promise((resolve, reject) => {
+		const opcoes = usar_agent ? { agent } : {};
+
 		https
 			.get(url, opcoes, (res) => {
 				let data = "";
@@ -118,14 +120,6 @@ function fetchHTML(url, opcoes = {}) {
 			})
 			.on("error", reject);
 	});
-}
-
-function pegarIP(agent) {
-	return fetchHTML("https://whatismyip.akamai.com", { agent })
-		.then((data) => data.trim())
-		.catch((e) => {
-			console.log(`${erro} Erro ao obter IP público: ${e.message}`);
-		});
 }
 
 function downloadFile(url, destination) {
@@ -324,7 +318,7 @@ async function fazerLoopRequest(tamanho, charset) {
 	console.log(centralizarTexto(arte));
 
 	while (true) {
-		const ip = await pegarIP();
+		const ip = await fetchHTML("https://whatismyip.akamai.com", true);
 		const username = gerarUsername(tamanho, charset);
 		const body = JSON.stringify({ username });
 
