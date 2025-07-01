@@ -79,6 +79,11 @@ function pegarPlataforma() {
 	} else if (platform === "win32") {
 		if (arch === "x64") return "windows-x86_64";
 		if (arch === "ia32") return "windows-i686";
+	} else if (platform === "android") {
+		if (arch === "arm64") return "android-aarch64";
+		if (arch === "arm") return "android-armv7";
+		if (arch === "x64") return "android-x86_64";
+		if (arch === "ia32" || arch === "x86") return "android-x86";
 	}
 
 	console.clear();
