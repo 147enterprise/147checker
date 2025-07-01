@@ -36,12 +36,12 @@ Você pode transformar este script em um executável usando o `pkg`.
 
 3. **Compile o script:**
     ```sh
-    pkg .
+    pkg index.js
     ```
 
 4. **Execute o executável:**
     ```sh
-    ./147clear.exe
+    ./index-*
     ```
 
 ## Abrir um Commit
