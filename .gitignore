@@ -1,4 +1,4 @@
 node_modules/
 tor_extraido/
 package-lock.json
-validos.txt
+validos-*.txt
