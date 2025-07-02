@@ -198,46 +198,67 @@ function gerarUsername(tamanho, charset) {
 		.join("");
 }
 
-async function pegarOpcoesUsernames() {
+async function pegarOpcoesUsernames({
+	minimo = 2,
+	maximo = 32,
+	desativar_numeros = false,
+} = {}) {
 	let tamanho;
 	while (true) {
 		console.clear();
 		console.log(centralizarTexto(arte));
 
 		const input = await prompt(
-			`Quantos caracteres o username deve ter?\n${roxo}> ${reset}`,
+			`Quantos caracteres o username deve ter? (${minimo} a ${maximo})\n${roxo}> ${reset}`,
 		);
-		const num = parseInt(input);
-		if (!isNaN(num) && num > 0 && num <= 32) {
+		const num = Number(input.trim());
+		if (Number.isInteger(num) && num >= minimo && num <= maximo) {
 			tamanho = num;
 			break;
 		}
-		console.log(`${erro} Por favor, insira um número válido entre 1 e 32.`);
 	}
 
 	console.clear();
 	console.log(centralizarTexto(arte));
 
-	console.log(`
-[${roxo} 1 ${reset}] Somente letras (a-z)
-[${roxo} 2 ${reset}] Somente números (0-9)
-[${roxo} 3 ${reset}] Letras e números (a-z, 0-9)
-  `);
+	console.log("\nEscolha o tipo de caracteres:\n");
+
+	const todasOpcoes = [
+		{
+			label: "Somente letras (a-z)",
+			charset: "abcdefghijklmnopqrstuvwxyz",
+			desativado: false,
+		},
+		{
+			label: "Letras e números (a-z, 0-9)",
+			charset: "abcdefghijklmnopqrstuvwxyz0123456789",
+			desativado: false,
+		},
+		{
+			label: "Somente números (0-9)",
+			charset: "0123456789",
+			desativado: desativar_numeros,
+		},
+	];
+	const opcoesDisponiveis = todasOpcoes.filter((op) => !op.desativado);
+
+	opcoesDisponiveis.forEach((op, i) => {
+		const ehUltima = i === opcoesDisponiveis.length - 1;
+		console.log(
+			`[${roxo} ${i + 1} ${reset}] ${op.label}${ehUltima ? "\n" : ""}`,
+		);
+	});
 
 	let charset = "";
 	while (true) {
 		const escolha = await prompt(`${roxo_2}>${reset} `);
-		if (escolha === "1") {
-			charset = "abcdefghijklmnopqrstuvwxyz";
-			break;
-		} else if (escolha === "2") {
-			charset = "0123456789";
-			break;
-		} else if (escolha === "3") {
-			charset = "abcdefghijklmnopqrstuvwxyz0123456789";
+		const index = parseInt(escolha) - 1;
+
+		if (!isNaN(index) && index >= 0 && index < opcoesDisponiveis.length) {
+			charset = opcoesDisponiveis[index].charset;
 			break;
 		}
-		console.log(`${erro} Opção inválida. Escolha 1, 2 ou 3.`);
+		console.log(`${erro} Opção inválida. Escolha uma das opções disponíveis.`);
 	}
 
 	return { tamanho, charset };
@@ -302,9 +323,9 @@ function iniciarTor(torDir) {
 	});
 }
 
-function salvarTxt(username) {
+function salvarTxt(username, arquivo) {
 	if (!config().salvar_validos) return;
-	const caminho = path.resolve("validos.txt");
+	const caminho = path.resolve(arquivo);
 
 	try {
 		fs.appendFileSync(caminho, username + "\n", "utf8");
@@ -313,7 +334,8 @@ function salvarTxt(username) {
 	}
 }
 
-async function fazerLoopRequest(tamanho, charset) {
+async function requestsDiscord(tamanho, charset) {
+	process.title = "147Company™ | Checker de usernames. | Discord";
 	console.clear();
 	console.log(centralizarTexto(arte));
 
@@ -322,7 +344,7 @@ async function fazerLoopRequest(tamanho, charset) {
 		const username = gerarUsername(tamanho, charset);
 		const body = JSON.stringify({ username });
 
-		const options = {
+		const opcoes = {
 			hostname: "discord.com",
 			port: 443,
 			path: "/api/v9/unique-username/username-attempt-unauthed",
@@ -335,7 +357,7 @@ async function fazerLoopRequest(tamanho, charset) {
 		};
 
 		await new Promise((resolve) => {
-			const req = https.request(options, (res) => {
+			const req = https.request(opcoes, (res) => {
 				let data = "";
 				res.on("data", (chunk) => (data += chunk));
 				res.on("end", async () => {
@@ -353,7 +375,7 @@ async function fazerLoopRequest(tamanho, charset) {
 					try {
 						const json = JSON.parse(data);
 
-						!json.taken && salvarTxt(username);
+						!json.taken && salvarTxt(username, "validos_discord.txt");
 						console.log(
 							centralizarTexto(
 								`[ ${roxo_2}!${reset} ] username ${roxo_2}${username}${reset} ${json.taken ? `${vermelho}indisponível${reset}\n` : `${verde}disponível${reset}\n`}`,
@@ -469,7 +491,8 @@ async function configurar() {
 	}
 }
 
-async function iniciar_checagem() {
+async function iniciar_discord() {
+	process.title = "147Company™ | Checker de usernames. | Discord.";
 	try {
 		console.clear();
 		const identificador = pegarPlataforma();
@@ -504,9 +527,102 @@ async function iniciar_checagem() {
 		await iniciarTor(pastaTor);
 
 		const { tamanho, charset } = await pegarOpcoesUsernames();
-		await fazerLoopRequest(tamanho, charset);
+		await requestsDiscord(tamanho, charset);
 	} catch (e) {
 		console.log(`${erro} Erro: ${e.message}`);
+	}
+}
+
+async function requestsTiktok(tamanho, charset) {
+	process.title = "147Company™ | Checker de usernames. | TikTok.";
+	console.clear();
+	console.log(centralizarTexto(arte));
+
+	while (true) {
+		const username = gerarUsername(tamanho, charset);
+		const url = `https://www.tiktok.com/@${username}`;
+
+		let raw = "";
+		let tentativas = 0;
+
+		while (raw.length < 200000 && tentativas < 5) {
+			tentativas++;
+			raw = await fetchHTML(url);
+			if (!raw) {
+				await sleep(500);
+			}
+		}
+
+		if (raw.length < 200000) {
+			console.log(
+				`${erro} Não foi possível obter página TikTok completa para ${username}`,
+			);
+			await sleep(parseInt(config().delay_requests));
+			continue;
+		}
+
+		const indisponivel = raw.toLowerCase().includes("followingcount");
+
+		if (indisponivel) {
+			console.log(
+				centralizarTexto(
+					`[ ${roxo_2}!${reset} ] username ${roxo_2}${username}${reset} ${vermelho}indisponível${reset}\n`,
+					4,
+				),
+			);
+		} else {
+			salvarTxt(username, "validos_tiktok.txt");
+			console.log(
+				centralizarTexto(
+					`[ ${roxo_2}!${reset} ] username ${roxo_2}${username}${reset} ${verde}disponível${reset}\n`,
+					4,
+				),
+			);
+		}
+
+		await sleep(parseInt(config().delay_requests));
+	}
+}
+
+async function iniciar_tiktok() {
+	const { tamanho, charset } = await pegarOpcoesUsernames({
+		minimo: 2,
+		maximo: 24,
+		desativar_numeros: true,
+	});
+	await requestsTiktok(tamanho, charset);
+}
+
+async function perguntar_rede_social() {
+	console.clear();
+	console.log(centralizarTexto(arte));
+	console.log(
+		centralizarTexto(
+			`
+[${roxo} 1 ${reset}] Discord
+[${roxo} 2 ${reset}] TikTok
+
+[${roxo} 3 ${reset}] Voltar
+    `,
+			4,
+		),
+	);
+	const resposta = await prompt(centralizarTexto(`${roxo_2}>${reset} `, 4));
+
+	switch (resposta) {
+		case "1":
+			return iniciar_discord();
+			break;
+		case "2":
+			return iniciar_tiktok();
+			break;
+		case "3":
+			return menu();
+			break;
+		default:
+			console.clear();
+			console.log(`${erro} Opção inválida.`);
+			process.exit();
 	}
 }
 
@@ -528,7 +644,7 @@ async function menu() {
 
 	switch (resposta) {
 		case "1":
-			return iniciar_checagem();
+			return perguntar_rede_social();
 			break;
 		case "2":
 			return configurar();
