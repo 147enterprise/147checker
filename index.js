@@ -2,7 +2,7 @@ process.title = "147Company™ | Checker de usernames.";
 
 const https = require("https");
 const fs = require("fs");
-const { exec, spawn, execSync } = require("child_process");
+const { exec, spawn, spawnSync, execSync } = require("child_process");
 const { SocksProxyAgent } = require("socks-proxy-agent");
 const os = require("os");
 const path = require("path");
@@ -52,6 +52,27 @@ $$$$ |$$ |__$$ |    /$$/
 $$$$$$/     $$/ $$/       
 ${amarelo}\n              software is our thing.${reset}
 `;
+
+const esperarEnter = () => {
+	return new Promise((resolve) => {
+		const rl = readline.createInterface({
+			input: process.stdin,
+			output: process.stdout,
+		});
+
+		console.log(
+			centralizarTexto(
+				`${amarelo}[Para parar de checar, pressione qualquer tecla.]${reset}\n`,
+				4,
+			),
+		);
+
+		rl.question("", () => {
+			rl.close();
+			resolve();
+		});
+	});
+};
 
 function prompt(question) {
 	const rl = readline.createInterface({
@@ -283,6 +304,66 @@ async function limparTor(dir) {
 	}
 }
 
+async function selecionarArquivo(extensao) {
+	if (process.platform === "win32") {
+		const psScript = `
+      Add-Type -AssemblyName System.Windows.Forms
+      $ofd = New-Object System.Windows.Forms.OpenFileDialog
+      $ofd.Filter = "${extensao.toUpperCase()} files (*.${extensao})|*.${extensao}"
+      $ofd.Title = "Selecione o arquivo .${extensao}"
+      if ($ofd.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
+        Write-Output $ofd.FileName
+      }
+    `;
+
+		console.log(
+			centralizarTexto(
+				`[${roxo_2} ! ${reset}] Selecione o arquivo com extensão ${amarelo}.${extensao}${reset}`,
+				1,
+			),
+		);
+
+		const child = spawnSync("powershell.exe", ["-Command", psScript], {
+			encoding: "utf8",
+			windowsHide: true,
+		});
+
+		const caminho = child.stdout.toString().trim();
+		return caminho || null;
+	} else {
+		const eu = process.pkg
+			? path.basename(process.execPath)
+			: path.basename(__filename);
+
+		const caminho = await prompt(
+			`Caminho do arquivo .${extensao}:\n${roxo}> ${reset}`,
+		);
+
+		const caminhoResolvido = path.resolve(caminho);
+
+		if (!fs.existsSync(caminhoResolvido)) {
+			console.clear();
+			console.log(
+				`${erro} Não achei o arquivo "${caminhoResolvido}", coloque-o na mesma pasta que eu (${eu}) e tente novamente.`,
+			);
+			await sleep(8000);
+			return null;
+		}
+
+		const ext = path.extname(caminhoResolvido).slice(1).toLowerCase();
+		if (ext !== extensao.toLowerCase()) {
+			console.clear();
+			console.log(
+				`${erro} O arquivo deve ter a extensão ${amarelo}.${extensao}${reset}.`,
+			);
+			await sleep(8000);
+			return null;
+		}
+
+		return caminhoResolvido;
+	}
+}
+
 function iniciarTor(torDir) {
 	return new Promise(async (resolve, reject) => {
 		try {
@@ -325,23 +406,101 @@ function iniciarTor(torDir) {
 
 function salvarTxt(username, arquivo) {
 	if (!config().salvar_validos) return;
+
 	const caminho = path.resolve(arquivo);
 
 	try {
+		if (
+			fs.existsSync(caminho) &&
+			fs.readFileSync(caminho, "utf8").includes(username + "\n")
+		)
+			return;
+
 		fs.appendFileSync(caminho, username + "\n", "utf8");
 	} catch (err) {
 		console.log(`${erro} Erro ao salvar username: ${err.message}`);
 	}
 }
 
-async function requestsDiscord(tamanho, charset) {
-	process.title = "147Company™ | Checker de usernames. | Discord";
+async function escolherModoUsername() {
+	console.clear();
+	console.log(centralizarTexto(arte));
+	console.log(
+		centralizarTexto(
+			`
+Escolha a origem dos usernames:
+
+[${roxo} 1 ${reset}] Gerar usernames aleatórios
+[${roxo} 2 ${reset}] Carregar usernames de um arquivo .txt
+
+[${roxo} 3 ${reset}] Voltar
+`,
+			4,
+		),
+	);
+
+	const resposta = await prompt(centralizarTexto(`${roxo_2}>${reset} `, 4));
+	switch (resposta) {
+		case "1":
+			return { modo: "gerar" };
+
+		case "2": {
+			console.clear();
+
+			const caminho = await selecionarArquivo("txt");
+			if (!caminho) {
+				console.clear();
+				console.log(`${erro} Nenhum arquivo selecionado.`);
+				await sleep(5000);
+				return escolherModoUsername();
+			}
+
+			try {
+				const conteudo = fs.readFileSync(caminho, "utf8");
+				const lista = conteudo
+					.split(/\r?\n/)
+					.map((l) => l.trim())
+					.filter((l) => l.length > 0);
+
+				if (lista.length === 0) throw new Error("Arquivo vazio.");
+
+				return { modo: "arquivo", lista };
+			} catch (e) {
+				console.clear();
+				console.log(`${erro} Erro ao ler o arquivo: ${e.message}`);
+				await sleep(5000);
+				return escolherModoUsername();
+			}
+		}
+
+		case "3":
+			return null;
+
+		default:
+			console.clear();
+			console.log(`${erro} Opção inválida.`);
+			await sleep(1500);
+			return escolherModoUsername();
+	}
+}
+
+async function requestsDiscord(tamanho, charset, lista = null) {
+	process.title = "147Company™ | Checker de usernames. | Discord.";
+
 	console.clear();
 	console.log(centralizarTexto(arte));
 
-	while (true) {
+	let parar = false;
+	let indice = 0;
+
+	const aguardar = esperarEnter();
+	aguardar.then(() => (parar = true));
+
+	while (!parar) {
 		const ip = await fetchHTML("https://whatismyip.akamai.com", true);
-		const username = gerarUsername(tamanho, charset);
+		const username = lista ? lista[indice++] : gerarUsername(tamanho, charset);
+		if (lista && indice >= lista.length) break;
+
 		const body = JSON.stringify({ username });
 
 		const opcoes = {
@@ -374,7 +533,6 @@ async function requestsDiscord(tamanho, charset) {
 
 					try {
 						const json = JSON.parse(data);
-
 						!json.taken && salvarTxt(username, "validos_discord.txt");
 						console.log(
 							centralizarTexto(
@@ -387,7 +545,6 @@ async function requestsDiscord(tamanho, charset) {
 							`${erro} Erro ao processar resposta JSON: ${e.message}`,
 						);
 					}
-
 					resolve();
 				});
 			});
@@ -403,6 +560,18 @@ async function requestsDiscord(tamanho, charset) {
 
 		await sleep(parseInt(config().delay_requests));
 	}
+
+	if (lista) {
+		console.log(
+			centralizarTexto(
+				`${amarelo}[Lista finalizada, pressione qualquer tecla para voltar ao menu.]${reset}`,
+				4,
+			),
+		);
+		await prompt("");
+	}
+
+	return menu();
 }
 
 async function configurar() {
@@ -526,44 +695,88 @@ async function iniciar_discord() {
 		const pastaTor = path.join(pastaSaida, "tor");
 		await iniciarTor(pastaTor);
 
-		const { tamanho, charset } = await pegarOpcoesUsernames();
-		await requestsDiscord(tamanho, charset);
+		const escolha = await escolherModoUsername();
+		if (!escolha) return menu();
+
+		if (escolha.modo === "gerar") {
+			const { tamanho, charset } = await pegarOpcoesUsernames();
+			await requestsDiscord(tamanho, charset);
+		} else {
+			await requestsDiscord(null, null, escolha.lista);
+		}
 	} catch (e) {
 		console.log(`${erro} Erro: ${e.message}`);
 	}
 }
 
-async function requestsTiktok(tamanho, charset) {
+async function requestsTiktok(tamanho, charset, lista = null) {
 	process.title = "147Company™ | Checker de usernames. | TikTok.";
+
 	console.clear();
 	console.log(centralizarTexto(arte));
+	console.log(
+		centralizarTexto(
+			`${amarelo}[Nicks bloqueados pelo TikTok podem aparecer como disponíveis. Checagem não é 100% precisa.]`,
+			4,
+		),
+	);
 
-	while (true) {
-		const username = gerarUsername(tamanho, charset);
-		const url = `https://www.tiktok.com/@${username}`;
+	let parar = false;
+	let indice = 0;
+
+	const aguardar = esperarEnter();
+	aguardar.then(() => (parar = true));
+
+	while (!parar) {
+		const username = lista ? lista[indice++] : gerarUsername(tamanho, charset);
+		if (lista && indice >= lista.length) break;
+
+		const url = `https://www.tiktok.com/@${username}?isUniqueId=true&isSecured=true`;
 
 		let raw = "";
+		let statusCode = 0;
 		let tentativas = 0;
 
 		while (raw.length < 200000 && tentativas < 5) {
 			tentativas++;
-			raw = await fetchHTML(url);
-			if (!raw) {
-				await sleep(500);
-			}
+
+			const resultado = await new Promise((resolve) => {
+				let data = "";
+				let status = 0;
+				const req = https.get(
+					url,
+					{
+						headers: {
+							"user-agent":
+								"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36",
+						},
+					},
+					(res) => {
+						status = res.statusCode;
+						res.on("data", (chunk) => {
+							data += chunk;
+						});
+						res.on("end", () => {
+							resolve({ status, body: data });
+						});
+					},
+				);
+
+				req.on("error", (err) => {
+					console.log(`${erro} Erro ao requisitar ${url}: ${err.message}`);
+					resolve({ status: 0, body: "" });
+				});
+			});
+
+			raw = resultado.body;
+			statusCode = resultado.status;
+
+			if (!raw) await sleep(500);
 		}
 
-		if (raw.length < 200000) {
-			console.log(
-				`${erro} Não foi possível obter página TikTok completa para ${username}`,
-			);
-			await sleep(parseInt(config().delay_requests));
-			continue;
-		}
+		const temUniqueId = /"uniqueId":"[^"]+"/.test(raw);
 
-		const indisponivel = raw.toLowerCase().includes("followingcount");
-
-		if (indisponivel) {
+		if (statusCode === 200 && temUniqueId) {
 			console.log(
 				centralizarTexto(
 					`[ ${roxo_2}!${reset} ] username ${roxo_2}${username}${reset} ${vermelho}indisponível${reset}\n`,
@@ -574,7 +787,7 @@ async function requestsTiktok(tamanho, charset) {
 			salvarTxt(username, "validos_tiktok.txt");
 			console.log(
 				centralizarTexto(
-					`[ ${roxo_2}!${reset} ] username ${roxo_2}${username}${reset} ${verde}disponível${reset}\n`,
+					`[ ${roxo_2}!${reset} ] O username ${roxo_2}${username}${reset} está ${verde}disponível${reset}\n`,
 					4,
 				),
 			);
@@ -582,15 +795,34 @@ async function requestsTiktok(tamanho, charset) {
 
 		await sleep(parseInt(config().delay_requests));
 	}
+
+	if (lista) {
+		console.log(
+			centralizarTexto(
+				`${amarelo}[Lista finalizada, pressione qualquer tecla para voltar ao menu.]${reset}`,
+				4,
+			),
+		);
+		await prompt("");
+	}
+
+	return menu();
 }
 
 async function iniciar_tiktok() {
-	const { tamanho, charset } = await pegarOpcoesUsernames({
-		minimo: 2,
-		maximo: 24,
-		desativar_numeros: true,
-	});
-	await requestsTiktok(tamanho, charset);
+	const escolha = await escolherModoUsername();
+	if (!escolha) return menu();
+
+	if (escolha.modo === "gerar") {
+		const { tamanho, charset } = await pegarOpcoesUsernames({
+			minimo: 2,
+			maximo: 24,
+			desativar_numeros: true,
+		});
+		await requestsTiktok(tamanho, charset);
+	} else {
+		await requestsTiktok(null, null, escolha.lista);
+	}
 }
 
 async function perguntar_rede_social() {
