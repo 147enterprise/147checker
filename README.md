@@ -4,7 +4,7 @@
 <br>
 
 ## Instalação
-(caso queira pular a instalação, baixe o .exe clicando em "Atualização x.x.x" no lado direito nas Releases do repositório)
+(caso queira pular a instalação, baixe o .exe [clicando aqui](https://github.com/147enterprise/147checker/releases/latest))
 
 1. **Clone o repositório:**
     ```sh
