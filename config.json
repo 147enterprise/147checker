@@ -1,0 +1,5 @@
+{
+	"delay_requests": "3000",
+	"delay_troca_ips": "25",
+	"salvar_validos": true
+}

@@ -1,0 +1,7 @@
+node_modules/
+tor_extraido/
+package-lock.json
+validos.txt
+validos_*.txt
+147checker.exe
+index-*
