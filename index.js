@@ -713,7 +713,7 @@ async function configurar() {
 						subconf.enviar_validos = !subconf.enviar_validos;
 						if (subconf.enviar_validos) {
 							subconf.mensagem =
-								"Nick disponível: {nick}\n-# checker feito por [147enterprise](<https://github.com/147enterprise>)\n@everyone";
+								"Nick disponível: {nick} ({plataforma})\n-# checker feito por [147enterprise](<https://github.com/147enterprise>)\n@everyone";
 						}
 						fs.writeFileSync("config.json", JSON.stringify(subconf, null, 4));
 						console.log(
