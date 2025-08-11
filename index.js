@@ -35,6 +35,7 @@ function criarConfig() {
 		delay_requests: "3000",
 		delay_troca_ips: "25",
 		salvar_validos: true,
+		enviar_validos: false,
 	};
 
 	fs.writeFileSync("config.json", JSON.stringify(configData, null, 4));
@@ -155,6 +156,36 @@ function downloadFile(url, destination) {
 				fs.unlink(destination, () => reject(err));
 			});
 	});
+}
+
+async function enviarWebhook(nick, plataforma) {
+	const { enviar_validos, webhook, mensagem } = config();
+	if (!enviar_validos || !webhook) return;
+	try {
+		const u = new URL(webhook);
+		if (
+			![
+				"ptb.discord.com",
+				"canary.discord.com",
+				"discord.com",
+				"discordapp.com",
+			].includes(u.hostname) ||
+			!u.pathname.startsWith("/api/webhooks/")
+		)
+			return;
+		await fetch(webhook, {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({
+				content: (
+					mensagem ||
+					"Nick disponível: {nick} ({plataforma})\n-# checker feito por [147enterprise](<https://github.com/147enterprise>)\n@everyone"
+				)
+					.replaceAll("{nick}", nick)
+					.replaceAll("{plataforma}", plataforma),
+			}),
+		});
+	} catch {}
 }
 
 function extrairTarGz(file, path_saida) {
@@ -534,6 +565,7 @@ async function requestsDiscord(tamanho, charset, lista = null) {
 					try {
 						const json = JSON.parse(data);
 						!json.taken && salvarTxt(username, "validos_discord.txt");
+						!json.taken && enviarWebhook(username, "Discord");
 						console.log(
 							centralizarTexto(
 								`[ ${roxo_2}!${reset} ] username ${roxo_2}${username}${reset} ${json.taken ? `${vermelho}indisponível${reset}\n` : `${verde}disponível${reset}\n`}`,
@@ -584,8 +616,9 @@ async function configurar() {
 [${roxo} 1 ${reset}] Alterar delay entre checagens (atual: ${amarelo}${config().delay_requests / 1000} segundos${reset})
 [${roxo} 2 ${reset}] Alterar delay entre troca de IPs (atual: ${amarelo}${config().delay_troca_ips} segundos${reset})
 [${roxo} 3 ${reset}] Ativar/desativar save de usernames disponíveis (atual: ${amarelo}${config().salvar_validos ? `${verde}ativado` : `${vermelho}desativado`}${reset})
+[${roxo} 4 ${reset}] Configurar envio pro webhook (atual: ${amarelo}${config().enviar_validos ? `${verde}ativado` : `${vermelho}desativado`}${reset})
 
-[${roxo} 4 ${reset}] Voltar
+[${roxo} 5 ${reset}] Voltar
     `,
 				4,
 			),
@@ -593,7 +626,7 @@ async function configurar() {
 
 		const resposta = await prompt(centralizarTexto(`${roxo_2}>${reset} `, 4));
 		let conf = config();
-		if (resposta === "4") return menu();
+		if (resposta === "5") return menu();
 
 		switch (resposta) {
 			case "1": {
@@ -652,6 +685,122 @@ async function configurar() {
 				break;
 			}
 
+			case "4": {
+				console.clear();
+				console.log(
+					centralizarTexto(
+						`
+[${roxo} 1 ${reset}] Ativar/desativar (atual: ${amarelo}${config().enviar_validos ? `${verde}ativado` : `${vermelho}desativado`}${reset})
+[${roxo} 2 ${reset}] Alterar webhook
+[${roxo} 3 ${reset}] Alterar mensagem do webhook
+
+[${roxo} 4 ${reset}] Voltar
+            			`,
+						4,
+					),
+				);
+
+				const subresposta = await prompt(`\n${roxo}> ${reset}`);
+				let subconf = config();
+
+				if (subresposta === "4") {
+					await sleep(1500);
+					break;
+				}
+
+				switch (subresposta) {
+					case "1": {
+						subconf.enviar_validos = !subconf.enviar_validos;
+						if (subconf.enviar_validos) {
+							subconf.mensagem =
+								"Nick disponível: {nick}\n-# checker feito por [147enterprise](<https://github.com/147enterprise>)\n@everyone";
+						}
+						fs.writeFileSync("config.json", JSON.stringify(subconf, null, 4));
+						console.log(
+							`${verde}Envio para webhook ${subconf.enviar_validos ? "ativado" : `${vermelho}desativado`}.${reset}`,
+						);
+						await sleep(1500);
+						break;
+					}
+
+					case "2": {
+						console.clear();
+						console.log(
+							centralizarTexto(
+								`Webhook atual: ${verde}${config().webhook || "Nenhum"}${reset}\n`,
+								1,
+							),
+						);
+
+						const novoWebhook = await prompt(
+							centralizarTexto(`Novo webhook:\n${roxo}> ${reset}`, 1),
+						);
+						if (novoWebhook.trim()) {
+							try {
+								const u = new URL(novoWebhook.trim());
+								if (
+									![
+										"ptb.discord.com",
+										"canary.discord.com",
+										"discord.com",
+										"discordapp.com",
+									].includes(u.hostname) ||
+									!u.pathname.includes("/api/webhooks")
+								) {
+									console.log(`${erro} Webhook inválido.`);
+									await sleep(1500);
+									break;
+								}
+								subconf.webhook = novoWebhook.trim();
+								fs.writeFileSync(
+									"config.json",
+									JSON.stringify(subconf, null, 4),
+								);
+								console.log(`${verde}Webhook atualizado com sucesso.${reset}`);
+							} catch {
+								console.log(`${erro} Webhook inválido.`);
+							}
+						} else {
+							console.log(`${erro} Webhook inválido.`);
+						}
+						await sleep(1500);
+						break;
+					}
+
+					case "3": {
+						console.clear();
+						console.log(
+							centralizarTexto(
+								`Mensagem atual: ${verde}${(subconf.mensagem || "Nenhuma (ative o enviar pro webhook pra mensagem padrão ser definida)").replace(/\n/g, "\\n")}${reset}\n\n` +
+									`{nick} serve como placeholder para ser substituido pelo nome disponível.\n` +
+									`{plataforma} serve também como placeholder mas para ser substituido pelo nome do site alvo da checagem.\n` +
+									`Use \\n para quebrar linhas.\n`,
+								1,
+							),
+						);
+						const novaMensagem = await prompt(`${roxo}> ${reset}`);
+						if (novaMensagem.trim()) {
+							subconf.mensagem = novaMensagem;
+							fs.writeFileSync("config.json", JSON.stringify(subconf, null, 4));
+							console.log(
+								`${verde}Mensagem do webhook atualizada com sucesso.${reset}`,
+							);
+						} else {
+							console.log(`${erro} Mensagem inválida.`);
+						}
+						await sleep(1500);
+						break;
+					}
+
+					default:
+						console.clear();
+						console.log(`${erro} Opção inválida.`);
+						await sleep(1500);
+				}
+
+				break;
+			}
+
 			default:
 				console.clear();
 				console.log(`${erro} Opção inválida.`);
@@ -684,7 +833,10 @@ async function iniciar_discord() {
 		await downloadFile(fullUrl, downloadPath);
 		console.log(`[${roxo_2} + ${reset}] Download concluído: ${downloadPath}`);
 
-                const pastaSaida = path.resolve(process.pkg ? process.cwd() : __dirname, "tor_extraido");
+		const pastaSaida = path.resolve(
+			process.pkg ? process.cwd() : __dirname,
+			"tor_extraido",
+		);
 		await limparTor(pastaSaida);
 		fs.mkdirSync(pastaSaida);
 
@@ -784,6 +936,7 @@ async function requestsTiktok(tamanho, charset, lista = null) {
 				),
 			);
 		} else {
+			enviarWebhook(username, "TikTok");
 			salvarTxt(username, "validos_tiktok.txt");
 			console.log(
 				centralizarTexto(
