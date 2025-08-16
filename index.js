@@ -6,6 +6,7 @@ const { exec, spawn, spawnSync, execSync } = require("child_process");
 const { SocksProxyAgent } = require("socks-proxy-agent");
 const os = require("os");
 const path = require("path");
+const net = require("net");
 const readline = require("readline");
 const fsp = fs.promises;
 
@@ -130,12 +131,16 @@ function centralizarTexto(text, space) {
 		.join("\n");
 }
 
-function fetchHTML(url, usar_agent = false) {
-	return new Promise((resolve, reject) => {
-		const opcoes = usar_agent ? { agent } : {};
+async function fetchHTML(url, usar_agent = false) {
+	if (usar_agent) {
+		const options = { agent };
+		const res = await fetchSeguro(url, options);
+		return await res.text();
+	}
 
+	return new Promise((resolve, reject) => {
 		https
-			.get(url, opcoes, (res) => {
+			.get(url, (res) => {
 				let data = "";
 				res.on("data", (chunk) => (data += chunk));
 				res.on("end", () => resolve(data));
@@ -155,6 +160,41 @@ function downloadFile(url, destination) {
 			.on("error", (err) => {
 				fs.unlink(destination, () => reject(err));
 			});
+	});
+}
+
+async function fetchSeguro(url, options, retries = 3) {
+	for (let i = 0; i < retries; i++) {
+		try {
+			return await fetch(url, options);
+		} catch (err) {
+			if (
+				err.message.includes("Socks5 proxy rejected connection") &&
+				i < retries - 1
+			) {
+				console.log(
+					`${amarelo}Conexão rejeitada pelo Tor, trocando IP e tentando de novo...${reset}`,
+				);
+				await novoCircuitoTor();
+				await new Promise((r) => setTimeout(r, 2000));
+				continue;
+			}
+			throw err;
+		}
+	}
+}
+
+async function novoCircuitoTor() {
+	return new Promise((resolve, reject) => {
+		const socket = net.connect({ port: 9051 }, () => {
+			socket.write('AUTHENTICATE ""\r\n');
+			socket.write("SIGNAL NEWNYM\r\n");
+			socket.write("QUIT\r\n");
+		});
+		socket.on("data", (data) => {
+			if (data.toString().includes("250 OK")) resolve();
+		});
+		socket.on("error", reject);
 	});
 }
 
@@ -202,6 +242,8 @@ function garantirExe(filePath) {
 MaxCircuitDirtiness 1
 CircuitBuildTimeout ${config().delay_troca_ips}
 LearnCircuitBuildTimeout 0
+ControlPort 9051
+CookieAuthentication 0
 `.trim();
 
 	fs.writeFileSync(path.join(path.dirname(filePath), "torrc"), conteudo);
@@ -221,7 +263,7 @@ function esperarTor(port = 9050, host = "127.0.0.1", timeout = 15000) {
 		let timeoutId;
 
 		function check() {
-			const socket = require("net").createConnection({ port, host }, () => {
+			const socket = net.createConnection({ port, host }, () => {
 				socket.destroy();
 				clearTimeout(timeoutId);
 				resolve();
@@ -534,61 +576,49 @@ async function requestsDiscord(tamanho, charset, lista = null) {
 
 		const body = JSON.stringify({ username });
 
-		const opcoes = {
-			hostname: "discord.com",
-			port: 443,
-			path: "/api/v9/unique-username/username-attempt-unauthed",
-			method: "POST",
-			headers: {
-				"Content-Type": "application/json",
-				"Content-Length": Buffer.byteLength(body),
-			},
-			agent,
-		};
+		try {
+			const res = await fetchSeguro(
+				"https://discord.com/api/v9/unique-username/username-attempt-unauthed",
+				{
+					method: "POST",
+					headers: {
+						"Content-Type": "application/json",
+					},
+					body,
+				},
+			);
 
-		await new Promise((resolve) => {
-			const req = https.request(opcoes, (res) => {
-				let data = "";
-				res.on("data", (chunk) => (data += chunk));
-				res.on("end", async () => {
-					if (res.statusCode === 429) {
-						console.log(
-							centralizarTexto(
-								`${erro} rate-limit (IP: ${ip}), esperando troca de IP.\n`,
-								4,
-							),
-						);
-						await sleep(parseInt(config().delay_troca_ips) * 1000 + 1000);
-						return resolve();
-					}
+			if (res.status === 429) {
+				console.log(
+					centralizarTexto(
+						`${erro} rate-limit (IP: ${ip}), esperando troca de IP.\n`,
+						4,
+					),
+				);
+				await sleep(parseInt(config().delay_troca_ips) * 1000 + 1000);
+				continue;
+			}
 
-					try {
-						const json = JSON.parse(data);
-						!json.taken && salvarTxt(username, "validos_discord.txt");
-						!json.taken && enviarWebhook(username, "Discord");
-						console.log(
-							centralizarTexto(
-								`[ ${roxo_2}!${reset} ] username ${roxo_2}${username}${reset} ${json.taken ? `${vermelho}indisponível${reset}\n` : `${verde}disponível${reset}\n`}`,
-								4,
-							),
-						);
-					} catch (e) {
-						console.log(
-							`${erro} Erro ao processar resposta JSON: ${e.message}`,
-						);
-					}
-					resolve();
-				});
-			});
+			const json = await res.json();
 
-			req.on("error", (err) => {
-				console.log(`${erro} Erro na requisição via Tor: ${err.message}`);
-				resolve();
-			});
+			if (!json.taken) {
+				salvarTxt(username, "validos_discord.txt");
+				enviarWebhook(username, "Discord");
+			}
 
-			req.write(body);
-			req.end();
-		});
+			console.log(
+				centralizarTexto(
+					`[ ${roxo_2}!${reset} ] username ${roxo_2}${username}${reset} ${
+						json.taken
+							? `${vermelho}indisponível${reset}\n`
+							: `${verde}disponível${reset}\n`
+					}`,
+					4,
+				),
+			);
+		} catch (e) {
+			console.log(`${erro} Erro na requisição via Tor: ${e.message}`);
+		}
 
 		await sleep(parseInt(config().delay_requests));
 	}
